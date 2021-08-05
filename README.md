@@ -10,4 +10,10 @@ GPIO 05  Relais K4 CL+
 GPIO 23  Relais K5 Main Power for Chlor generation
 GPIO 22  Beep  
 GPIO 21  Fan
+GPIO 15  Low Flow
+```
+
+Future:
+```
+GPIO 34  ADC for Low/High Salt
 ```

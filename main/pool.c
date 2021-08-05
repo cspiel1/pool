@@ -3,38 +3,181 @@
  *
  * Copyright (C) 2021 Christian Spielberger
  */
+
 #include <stdio.h>
-#include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "esp_system.h"
-#include "esp_spi_flash.h"
+#include "esp_log.h"
+#include "driver/gpio.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
+#include "pool.h"
 
-void app_main(void)
+static const char *TAG = "pool";
+
+#define GPIO_WAT_MINUS       4
+#define GPIO_WAT_PLUS       18
+#define GPIO_CL_MINUS       19
+#define GPIO_CL_PLUS         5
+#define GPIO_POWER          23
+#define GPIO_BEEP           22
+#define GPIO_FAN            21
+
+#define GPIO_LOW_FLOW       15
+
+#define GPIO_OUTPUT_PIN_SEL  (\
+        (1ULL<<GPIO_WAT_MINUS) | \
+        (1ULL<<GPIO_WAT_PLUS)  | \
+        (1ULL<<GPIO_CL_MINUS)  | \
+        (1ULL<<GPIO_CL_PLUS)   | \
+        (1ULL<<GPIO_POWER)     | \
+        (1ULL<<GPIO_BEEP)      | \
+        (1ULL<<GPIO_FAN)         \
+        )
+
+#define GPIO_INPUT_PIN_SEL  ((1ULL<<GPIO_LOW_FLOW))
+
+#define ESP_INTR_FLAG_DEFAULT 0
+#define DEFAULT_VREF    1100
+#define NO_OF_SAMPLES   64
+
+static void print_char_val_type(esp_adc_cal_value_t val_type)
 {
-    printf("Hello world!\n");
+    if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+        printf("Characterized using Two Point Value\n");
+    } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+        printf("Characterized using eFuse Vref\n");
+    } else {
+        printf("Characterized using Default Vref\n");
+    }
+}
 
-    /* Print chip information */
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-    printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
-            CONFIG_IDF_TARGET,
-            chip_info.cores,
-            (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-            (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+static void IRAM_ATTR low_flow(void* arg)
+{
+    bool *changed = (bool *) arg;
 
-    printf("silicon revision %d, ", chip_info.revision);
+    *changed = true;
+}
 
-    printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    printf("Minimum free heap size: %d bytes\n", esp_get_minimum_free_heap_size());
+static void handle_flow_change(int lev)
+{
+    int on = !gpio_get_level(GPIO_LOW_FLOW);
 
-    for (int i = 10; i >= 0; i--) {
-        printf("Restarting in %d seconds...\n", i);
+    gpio_set_level(GPIO_POWER, on);
+    gpio_set_level(GPIO_FAN, on);
+
+    if (on) {
+        ESP_LOGI(TAG, "Flow Ok");
+        gpio_set_level(GPIO_WAT_MINUS, lev);
+        gpio_set_level(GPIO_WAT_PLUS, !lev);
+        gpio_set_level(GPIO_CL_MINUS, lev);
+        gpio_set_level(GPIO_CL_PLUS, !lev);
+    } else {
+        ESP_LOGW(TAG, "Low flow detected");
+        gpio_set_level(GPIO_WAT_MINUS, 0);
+        gpio_set_level(GPIO_WAT_PLUS, 0);
+        gpio_set_level(GPIO_CL_MINUS, 0);
+        gpio_set_level(GPIO_CL_PLUS, 0);
+    }
+}
+
+
+void pool_loop(void *pvParameter)
+{
+    bool changed = false;
+    esp_adc_cal_characteristics_t *adc_chars;
+    const adc_channel_t channel = ADC_CHANNEL_6; /* GPIO34 */
+    const adc_bits_width_t width = ADC_WIDTH_BIT_12;
+    const adc_atten_t atten = ADC_ATTEN_DB_0;
+    const adc_unit_t unit = ADC_UNIT_1;
+    (void) pvParameter;
+    ESP_LOGI(TAG, "Init GPIO");
+
+    /* configure outputs */
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
+
+    /* configure inputs with interrupt for rising edge*/
+    io_conf.intr_type = GPIO_INTR_ANYEDGE;
+    io_conf.pin_bit_mask = GPIO_INPUT_PIN_SEL;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 1;
+    gpio_config(&io_conf);
+
+    /* install gpio isr service */
+    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+    gpio_isr_handler_add(GPIO_LOW_FLOW, low_flow, &changed);
+
+    /* configure ADC */
+    adc1_config_width(width);
+    adc1_config_channel_atten(channel, atten);
+    adc_chars = calloc(1, sizeof(esp_adc_cal_characteristics_t));
+    esp_adc_cal_value_t val_type = esp_adc_cal_characterize(unit, atten, width,
+            DEFAULT_VREF, adc_chars);
+    print_char_val_type(val_type);
+
+
+    /* main loop */
+    ESP_LOGI(TAG, "Starting pool main loop ...");
+
+    int cnt = 0;
+    int sec = 0;
+
+    int lev = !gpio_get_level(GPIO_LOW_FLOW);
+    gpio_set_level(GPIO_POWER, lev);
+    gpio_set_level(GPIO_FAN, lev);
+    if (lev)
+        ESP_LOGI(TAG, "Flow Ok on startup");
+    else
+        ESP_LOGW(TAG, "Low flow detected at startup");
+
+    uint32_t adc = 0;
+
+    /* currently only 3 hours */
+    while(sec < 3 * 60 * 60) {
+
+        /* flip voltage from +/- every 20 minutes */
+        const int d = 20*60;
+        vTaskDelay(100 / portTICK_RATE_MS);
+
+        if (changed) {
+            changed = false;
+            handle_flow_change(lev);
+        }
+        else if (cnt % (10 * d) == 0 && !gpio_get_level(GPIO_LOW_FLOW)) {
+            uint32_t voltage;
+            lev = !lev;
+            ESP_LOGI(TAG, "sec: %d switch to %d\n", sec, lev);
+            gpio_set_level(GPIO_WAT_MINUS, lev);
+            gpio_set_level(GPIO_WAT_PLUS, !lev);
+            gpio_set_level(GPIO_CL_MINUS, lev);
+            gpio_set_level(GPIO_CL_PLUS, !lev);
+
+            adc = adc1_get_raw((adc1_channel_t) channel);
+            voltage = esp_adc_cal_raw_to_voltage(adc, adc_chars);
+            ESP_LOGI(TAG, "Raw: %d\tVoltage: %dmV\n", adc, voltage);
+        }
+
+        cnt++;
+        if (cnt % 10 == 0)
+            sec++;
+    }
+
+    gpio_set_level(GPIO_POWER, 0);
+    gpio_set_level(GPIO_WAT_MINUS, 0);
+    gpio_set_level(GPIO_WAT_PLUS, 0);
+    gpio_set_level(GPIO_CL_MINUS, 0);
+    gpio_set_level(GPIO_CL_PLUS, 0);
+    gpio_set_level(GPIO_FAN, 0);
+
+    while (1) {
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
-    printf("Restarting now.\n");
-    fflush(stdout);
-    esp_restart();
 }
