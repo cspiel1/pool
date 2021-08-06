@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 
 #include "ota.h"
+#include "config.h"
 
 
 static const char *TAG = "ota";
@@ -84,7 +85,7 @@ void ota_task(void *pvParameter)
     (void) pvParameter;
     ESP_LOGI(TAG, "Starting OTA upgrade ...");
     esp_http_client_config_t config = {
-        .url = "https://your-webserver/share/pool.bin",
+        .url = CONFIG_OTA_URL,
         .event_handler = _http_event_handler,
         .keep_alive_enable = true,
         .skip_cert_common_name_check = true,

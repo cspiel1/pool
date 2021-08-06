@@ -19,9 +19,8 @@
 #include "lwip/sys.h"
 
 #include "wifi.h"
+#include "config.h"
 
-#define CONFIG_ESP_WIFI_SSID "yourSSID"
-#define CONFIG_ESP_WIFI_PASSWORD "yourWIFIpass"
 #define CONFIG_ESP_MAXIMUM_RETRY 9
 
 
