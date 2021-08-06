@@ -17,3 +17,22 @@ Future:
 ```
 GPIO 34  ADC for Low/High Salt
 ```
+
+# Configuration and Build
+
+## Static Configuration
+
+Is done during build. The values can be set in `main/config.h`.
+
+## Build
+
+- [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/](Get Started with esp-idf)
+- Build with `idf.py build`
+- Flush with `idf.py flush` (GPIO0 to Low)
+- Run ESP32: GPIO0 to High
+
+## User Configuration
+
+The ESP32 uses DHCP to connect to your WiFi access point and starts a tiny
+web-server on startup. Find with arp-scan your Espressif Inc. ESP32 and
+navigate with your browser to port 80.
