@@ -33,7 +33,7 @@ Is done during build. The values can be set in `main/config.h`. Use
 
 ## Build
 
-- [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/](Get Started with esp-idf)
+- [Get Started with esp-idf](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started)
 - Build with `idf.py build`
 - Flush with `idf.py flush` (GPIO0 to Low)
 - Run ESP32: GPIO0 to High
