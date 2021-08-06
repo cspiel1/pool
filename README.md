@@ -3,19 +3,19 @@
 GPIO Pins
 
 ```
-GPIO 04  Relais K1 WAT-
-GPIO 18  Relais K2 WAT+
-GPIO 19  Relais K3 CL-
-GPIO 05  Relais K4 CL+
-GPIO 23  Relais K5 Main Power for Chlor generation
-GPIO 22  Beep  
-GPIO 21  Fan
-GPIO 15  Low Flow
+(A) GPIO 23  Relais K5 Main Power for Chlor generation
+(B) GPIO 04  Relais K1 WAT-
+(C) GPIO 18  Relais K2 WAT+
+(D) GPIO 19  Relais K3 CL-
+(E) GPIO 05  Relais K4 CL+
+(F) GPIO 21  Fan
+(G) GPIO 22  Beep  
+(H) GPIO 15  Low Flow
 ```
 
 Future:
 ```
-GPIO 34  ADC for Low/High Salt
+(?) GPIO 34  ADC for Low/High Salt
 ```
 
 # Connect ESP32
