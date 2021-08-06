@@ -22,7 +22,7 @@ GPIO 34  ADC for Low/High Salt
 
 TBD
 
-![ECO6220G main board](https://github.com/cspiel1/pool/img.jpeg "ECO6220G main board")
+![ECO6220G main board](https://github.com/cspiel1/pool/blob/main/img.jpeg "ECO6220G main board")
 
 # Configuration and Build
 
