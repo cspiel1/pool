@@ -22,7 +22,8 @@ GPIO 34  ADC for Low/High Salt
 
 ## Static Configuration
 
-Is done during build. The values can be set in `main/config.h`.
+Is done during build. The values can be set in `main/config.h`. Use
+`main/config.h.def` as template!
 
 ## Build
 
