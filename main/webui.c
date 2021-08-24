@@ -67,37 +67,18 @@ static const char *TAG = "webui";
 "<p>Log</p>" \
 
 
-#define DBG_CNT 10
-
 struct webui {
     time_t times;
     int duration;
     bool upgrade;
     bool reboot;
     bool reset;
-    char *debug[DBG_CNT];
     int dcnt;
 };
 
 static struct webui d;
 
 static time_t current_time(void);
-
-static int web_debug(const char *fmt, ...)
-{
-    va_list ap;
-    int n;
-    size_t l = strlen(fmt) + 128;
-
-    d.debug[d.dcnt] = (char *) malloc(l);
-
-    va_start(ap, fmt);
-    n = vsnprintf(d.debug[d.dcnt], l, fmt, ap);
-    va_end(ap);
-
-    d.dcnt++;
-    return n;
-}
 
 
 static esp_err_t send_html(httpd_req_t *req)
@@ -131,6 +112,8 @@ static esp_err_t send_html(httpd_req_t *req)
         free(buf);
     }
 
+    len = 64;
+    buf = malloc(len);
     if (snprintf(buf, len, "<p>%s ...</p>", webui_check_time() ?
                 "Running" : "Sleeping"))
         httpd_resp_send_chunk(req, buf, HTTPD_RESP_USE_STRLEN);
@@ -141,13 +124,6 @@ static esp_err_t send_html(httpd_req_t *req)
                 d.reset ? "Reset" : ""))
         httpd_resp_send_chunk(req, buf, HTTPD_RESP_USE_STRLEN);
 
-    for (i = 0; i < d.dcnt; i++) {
-        httpd_resp_send_chunk(req, d.debug[i], HTTPD_RESP_USE_STRLEN);
-        free(d.debug[i]);
-        d.debug[i] = NULL;
-    }
-
-    d.dcnt = 0;
     httpd_resp_send_chunk(req, HTML_FOOTER, HTTPD_RESP_USE_STRLEN);
 
     free(buf);
@@ -306,11 +282,12 @@ static esp_err_t handle_post(httpd_req_t *req)
             err  = body_value(stime, sizeof stime, buf, "stime");
             err |= body_value(dur, sizeof dur, buf, "duration");
             if (!err) {
+                logw("stime=%s dur=%s", stime, dur);
                 d.times = convert_time(stime);
                 strftime(stime, sizeof stime, "%H:%M", localtime(&d.times));
-                web_debug("<p>d.times=%lu stime=%s</p>", d.times, stime);
+                logw("d.times=%lu stime=%s", d.times, stime);
                 d.duration = atoi(dur);
-                web_debug("<p>duration=%d</p>", d.duration);
+                logw("duration=%d", d.duration);
             }
         }
     }
