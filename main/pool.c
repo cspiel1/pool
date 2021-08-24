@@ -11,6 +11,7 @@
 #include "driver/gpio.h"
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
+#include "webui.h"
 #include "pool.h"
 
 static const char *TAG = "pool";
@@ -60,10 +61,8 @@ static void IRAM_ATTR low_flow(void* arg)
 }
 
 
-static void handle_flow_change(int lev)
+static void switch_on_off(bool on, int lev)
 {
-    int on = !gpio_get_level(GPIO_LOW_FLOW);
-
     gpio_set_level(GPIO_POWER, on);
     gpio_set_level(GPIO_FAN, on);
 
@@ -83,9 +82,17 @@ static void handle_flow_change(int lev)
 }
 
 
+static void handle_flow_change(int lev)
+{
+    int on = !gpio_get_level(GPIO_LOW_FLOW);
+    switch_on_off(on && webui_check_time(), lev);
+}
+
+
 void pool_loop(void *pvParameter)
 {
     bool changed = false;
+    bool run = false;
     esp_adc_cal_characteristics_t *adc_chars;
     const adc_channel_t channel = ADC_CHANNEL_6; /* GPIO34 */
     const adc_bits_width_t width = ADC_WIDTH_BIT_12;
@@ -128,7 +135,6 @@ void pool_loop(void *pvParameter)
     ESP_LOGI(TAG, "Starting pool main loop ...");
 
     int cnt = 0;
-    int sec = 0;
 
     int lev = !gpio_get_level(GPIO_LOW_FLOW);
     gpio_set_level(GPIO_POWER, lev);
@@ -141,11 +147,27 @@ void pool_loop(void *pvParameter)
     uint32_t adc = 0;
 
     /* currently only 3 hours */
-    while(sec < 3 * 60 * 60) {
+    while (true) {
 
         /* flip voltage from +/- every 20 minutes */
         const int d = 20*60;
         vTaskDelay(100 / portTICK_RATE_MS);
+
+        cnt++;
+
+        if (!webui_check_time()) {
+            if (run) {
+                switch_on_off(false, 0);
+                run = false;
+            }
+
+            continue;
+        }
+
+        if (!run) {
+            run = true;
+            changed = true;
+        }
 
         if (changed) {
             changed = false;
@@ -154,7 +176,7 @@ void pool_loop(void *pvParameter)
         else if (cnt % (10 * d) == 0 && !gpio_get_level(GPIO_LOW_FLOW)) {
             uint32_t voltage;
             lev = !lev;
-            ESP_LOGI(TAG, "sec: %d switch to %d\n", sec, lev);
+            ESP_LOGI(TAG, "switch to %d\n", lev);
             gpio_set_level(GPIO_WAT_MINUS, lev);
             gpio_set_level(GPIO_WAT_PLUS, !lev);
             gpio_set_level(GPIO_CL_MINUS, lev);
@@ -165,19 +187,5 @@ void pool_loop(void *pvParameter)
             ESP_LOGI(TAG, "Raw: %d\tVoltage: %dmV\n", adc, voltage);
         }
 
-        cnt++;
-        if (cnt % 10 == 0)
-            sec++;
-    }
-
-    gpio_set_level(GPIO_POWER, 0);
-    gpio_set_level(GPIO_WAT_MINUS, 0);
-    gpio_set_level(GPIO_WAT_PLUS, 0);
-    gpio_set_level(GPIO_CL_MINUS, 0);
-    gpio_set_level(GPIO_CL_PLUS, 0);
-    gpio_set_level(GPIO_FAN, 0);
-
-    while (1) {
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }

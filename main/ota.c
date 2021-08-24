@@ -94,6 +94,7 @@ void ota_task(void *pvParameter)
 
     esp_err_t ret = esp_https_ota(&config);
     if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "=========== Reboot after OTA upgrade ==========");
         esp_restart();
     } else {
         ESP_LOGE(TAG, "Firmware upgrade failed");

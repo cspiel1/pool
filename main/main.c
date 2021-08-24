@@ -75,5 +75,7 @@ void app_main(void)
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         if (webui_upgrade())
             xTaskCreate(&ota_task, "ota_task", 8192, NULL, 5, NULL);
+
+        wifi_check();
     }
 }

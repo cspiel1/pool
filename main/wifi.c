@@ -4,6 +4,7 @@
  * Copyright (C) 2021 Christian Spielberger
  */
 #include <stdio.h>
+#include <stdbool.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -20,6 +21,7 @@
 
 #include "wifi.h"
 #include "config.h"
+#include "log.h"
 
 #define CONFIG_ESP_MAXIMUM_RETRY 9
 
@@ -35,31 +37,32 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static const char *TAG = "wifi";
 
-static int s_retry_num = 0;
+static int s_retry_delay = 0;  /* in seconds */
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
     ESP_LOGI(TAG, "Wifi event_id %d", event_id);
+    logw("Wifi event_id %d", event_id);
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     }
     else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < CONFIG_ESP_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(TAG,"connect to the AP fail");
+        esp_wifi_connect();
+
+        if (!s_retry_delay)
+            s_retry_delay = 1;
+        else if (s_retry_delay < 256)
+            s_retry_delay *= 2;
+
+        ESP_LOGI(TAG, "retry to connect to the AP");
     }
     else if (event_base == IP_EVENT &&
              event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        s_retry_num = 0;
+        s_retry_delay = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
@@ -137,3 +140,14 @@ int wifi_init_sta(void)
     return err;
 }
 
+
+void wifi_check(void)
+{
+    if (s_retry_delay > 0) {
+        s_retry_delay--;
+        if (!s_retry_delay) {
+            logw("Wifi reconnect");
+            esp_wifi_connect();
+        }
+    }
+}
