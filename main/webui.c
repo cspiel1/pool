@@ -203,6 +203,7 @@ static int body_value(char *val, size_t vlen, const char *body, const char *key)
 	l = e - p;
 
     strncpy(val, p, l);
+    val[l] = 0;
     return 0;
 }
 

@@ -29,6 +29,7 @@ static int body_value(char *val, size_t vlen, const char *body, const char *key)
 	l = e - p;
 
     strncpy(val, p, l);
+    val[l] = 0;
     return 0;
 }
 
@@ -89,6 +90,7 @@ void run_it(const char *buf)
 	return;
     }
 
+    printf("stime=%s dur=%s\n", stime, dur);
     times = convert_time(stime);
     duration = atoi(dur);
     timec = current_time();
