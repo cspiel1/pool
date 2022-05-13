@@ -3,3 +3,4 @@ sdkconfig.old
 tags
 build
 main/config.h
+.cache

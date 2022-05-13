@@ -9,10 +9,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <esp_log.h>
 #include "log.h"
 
 #define MAX_LINES  100
-static char *lines[MAX_LINES] = { NULL };
+static char *lines[MAX_LINES] = {};
 static uint32_t w  =  0;
 static uint32_t r  =  0;
 static uint32_t r0 =  0;
@@ -71,10 +72,10 @@ void logw(const char *fmt, ...)
     va_start(ap, fmt);
     l = va_list_size(fmt, ap);
     va_end(ap);
-    l += strlen(fmt) + 1;
+    l += strlen(fmt) + 10;
 
     free(lines[w]);
-    lines[w] = malloc(l);
+    lines[w] = malloc(l + 1);
     va_start(ap, fmt);
     vsnprintf(lines[w], l, fmt, ap);
     va_end(ap);
@@ -93,7 +94,7 @@ const char *logr(void)
 {
     const char *ret = NULL;
 
-    if (r < w) {
+    if (r != w) {
         ret = lines[r];
         r = rr(r);
     }

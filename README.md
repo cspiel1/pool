@@ -34,10 +34,17 @@ Is done during build. The values can be set in `main/config.h`. Use
 ## Build
 
 - [Get Started with esp-idf](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started)
-- In your esp-idf directory invoke `. ./export.sh`
-- Build with `idf.py build`
-- Flush with `idf.py flush` (GPIO0 to Low)
-- Run ESP32: GPIO0 to High
+- Invoke `get_idf`
+```
+  mkdir build
+  cd build
+  cmake ..
+  make
+
+  # GPIO0 to Low, power on
+  make flash
+  # GPIO0 to High, power on
+```
 
 ## User Configuration
 

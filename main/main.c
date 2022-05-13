@@ -4,6 +4,8 @@
  * Copyright (C) 2021 Christian Spielberger
  */
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include "sdkconfig.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -11,6 +13,8 @@
 #include "esp_spi_flash.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "esp_wifi.h"
+#include "esp_chip_info.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 
@@ -31,6 +35,11 @@ static const char *TAG = "main";
 void app_main(void)
 {
     static httpd_handle_t server = NULL;
+
+    // Set timezone to China Standard Time
+    setenv("TZ", ":Europe/Vienna", 1);
+    tzset();
+
     ESP_LOGI(TAG, "Starting Pool main");
 
     /* Print chip information */

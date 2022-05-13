@@ -15,6 +15,7 @@
 #include "esp_event.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
+#include "esp_sntp.h"
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
@@ -24,6 +25,9 @@
 #include "log.h"
 
 #define CONFIG_ESP_MAXIMUM_RETRY 9
+#define NTP_SERVER "de.pool.ntp.org"
+/* Western European Time */
+#define TZ_INFO "WEST-1DWEST-2,M3.5.0/02:00:00,M10.5.0/03:00:00"
 
 
 /* FreeRTOS event group to signal when we are connected*/
@@ -63,9 +67,23 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_delay = 0;
+        setenv("TZ", TZ_INFO, 1);
+        tzset();
+        sntp_setoperatingmode(SNTP_OPMODE_POLL);
+        sntp_setservername(0, NTP_SERVER);
+        sntp_init();
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+
     }
 }
+
+
+static void vendor_ie_cb(void *ctx, wifi_vendor_ie_type_t type,
+        const uint8_t sa[6], const vendor_ie_data_t *vnd_ie, int rssi)
+{
+    logw("%s:%d type=%u rssi=%d", __FUNCTION__, __LINE__, type, rssi);
+}
+
 
 int wifi_init_sta(void)
 {
@@ -73,6 +91,7 @@ int wifi_init_sta(void)
 
     s_wifi_event_group = xEventGroupCreate();
 
+    esp_wifi_set_vendor_ie_cb(vendor_ie_cb, NULL);
     ESP_ERROR_CHECK(esp_netif_init());
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());

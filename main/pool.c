@@ -67,13 +67,13 @@ static void switch_on_off(bool on, int lev)
     gpio_set_level(GPIO_FAN, on);
 
     if (on) {
-        ESP_LOGI(TAG, "Flow Ok");
+        ESP_LOGI(TAG, "Switch on ...");
         gpio_set_level(GPIO_WAT_MINUS, lev);
         gpio_set_level(GPIO_WAT_PLUS, !lev);
         gpio_set_level(GPIO_CL_MINUS, lev);
         gpio_set_level(GPIO_CL_PLUS, !lev);
     } else {
-        ESP_LOGW(TAG, "Low flow detected");
+        ESP_LOGW(TAG, "Switch off ...");
         gpio_set_level(GPIO_WAT_MINUS, 0);
         gpio_set_level(GPIO_WAT_PLUS, 0);
         gpio_set_level(GPIO_CL_MINUS, 0);
@@ -85,6 +85,11 @@ static void switch_on_off(bool on, int lev)
 static void handle_flow_change(int lev)
 {
     int on = !gpio_get_level(GPIO_LOW_FLOW);
+    if (on)
+        ESP_LOGI(TAG, "Flow Ok");
+    else
+        ESP_LOGW(TAG, "Low flow detected");
+
     switch_on_off(on && webui_check_time(), lev);
 }
 
@@ -137,11 +142,11 @@ void pool_loop(void *pvParameter)
     int cnt = 0;
 
     int lev = !gpio_get_level(GPIO_LOW_FLOW);
-    gpio_set_level(GPIO_POWER, lev);
-    gpio_set_level(GPIO_FAN, lev);
-    if (lev)
+    gpio_set_level(GPIO_POWER, false);
+    gpio_set_level(GPIO_FAN, false);
+    if (lev) {
         ESP_LOGI(TAG, "Flow Ok on startup");
-    else
+    } else
         ESP_LOGW(TAG, "Low flow detected at startup");
 
     uint32_t adc = 0;
@@ -151,7 +156,7 @@ void pool_loop(void *pvParameter)
 
         /* flip voltage from +/- every 20 minutes */
         const int d = 20*60;
-        vTaskDelay(100 / portTICK_RATE_MS);
+        vTaskDelay(100 / portTICK_PERIOD_MS);
 
         cnt++;
 
