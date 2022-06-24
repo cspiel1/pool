@@ -21,7 +21,7 @@ static const char *TAG = "pool";
 #define GPIO_CL_MINUS       19
 #define GPIO_CL_PLUS         5
 #define GPIO_POWER          23
-#define GPIO_BEEP           22
+#define GPIO_LED            22
 #define GPIO_FAN            21
 
 #define GPIO_LOW_FLOW       15
@@ -32,7 +32,7 @@ static const char *TAG = "pool";
         (1ULL<<GPIO_CL_MINUS)  | \
         (1ULL<<GPIO_CL_PLUS)   | \
         (1ULL<<GPIO_POWER)     | \
-        (1ULL<<GPIO_BEEP)      | \
+        (1ULL<<GPIO_LED)       | \
         (1ULL<<GPIO_FAN)         \
         )
 

@@ -14,6 +14,7 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_log.h"
+#include "driver/gpio.h"
 #include "nvs_flash.h"
 #include "esp_sntp.h"
 
@@ -23,6 +24,8 @@
 #include "wifi.h"
 #include "config.h"
 #include "log.h"
+
+#define GPIO_LED            22
 
 #define CONFIG_ESP_MAXIMUM_RETRY 9
 #define NTP_SERVER "de.pool.ntp.org"
@@ -42,6 +45,8 @@ static EventGroupHandle_t s_wifi_event_group;
 static const char *TAG = "wifi";
 
 static int s_retry_delay = 0;  /* in seconds */
+static bool led = true;
+static bool flash = true;
 
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -60,6 +65,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         else if (s_retry_delay < 256)
             s_retry_delay *= 2;
 
+        flash = true;
         ESP_LOGI(TAG, "retry to connect to the AP");
     }
     else if (event_base == IP_EVENT &&
@@ -67,13 +73,15 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_delay = 0;
+        flash = false;
         setenv("TZ", TZ_INFO, 1);
         tzset();
         sntp_setoperatingmode(SNTP_OPMODE_POLL);
         sntp_setservername(0, NTP_SERVER);
         sntp_init();
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-
+        gpio_set_level(GPIO_LED, true);
+        ESP_LOGI(TAG, "Wifi ok, LED on");
     }
 }
 
@@ -162,7 +170,13 @@ int wifi_init_sta(void)
 
 void wifi_check(void)
 {
+    if (flash) {
+        led = !led;
+        gpio_set_level(GPIO_LED, led);
+    }
+
     if (s_retry_delay > 0) {
+
         s_retry_delay--;
         if (!s_retry_delay) {
             logw("Wifi reconnect");
