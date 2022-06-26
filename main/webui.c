@@ -45,7 +45,7 @@ static const char *TAG = "webui";
 " value=\"%d\"><br>\n"
 
 #define HTML_FORM1 \
-"<h2>Pool Saltwater System</h2>" \
+"<h2>Pool Saltwater System V1.6</h2>" \
 "" \
 "<form action=\"\" method=\"post\">\n"
 
@@ -63,6 +63,8 @@ static const char *TAG = "webui";
 "  <label for=\"reboot\">Reboot</label><br>\n" \
 "  <input type=\"radio\" id=\"reset\" name=\"command\" value=\"reset\">\n" \
 "  <label for=\"reset\">Reset</label><br>\n" \
+"  <input type=\"radio\" id=\"wifi\" name=\"command\" value=\"wifi\">\n" \
+"  <label for=\"wifi\">Wifi Scan</label><br>\n" \
 "  <br>\n" \
 "  <br>\n" \
 
@@ -95,6 +97,7 @@ struct webui {
     int duration;
     bool upgrade;
     bool reboot;
+    bool wifi;
     bool reset;
     int dcnt;
     enum force_run force;
@@ -357,6 +360,11 @@ static esp_err_t handle_post(httpd_req_t *req)
             d.duration = 3;
             ESP_ERROR_CHECK(nvs_flash_erase());
         }
+        else if (strstr(buf, "command=wifi")) {
+            ESP_LOGI(TAG, "=========== Wifi scan ==========");
+            d.wifi = true;
+            logw("command=wifi");
+        }
         else if (strstr(buf, "force=on")) {
             ESP_LOGI(TAG, "=========== Force on ==========");
             d.force = FORCE_ON;
@@ -372,7 +380,6 @@ static esp_err_t handle_post(httpd_req_t *req)
             else if (body_value(dur, sizeof(dur), buf, "duration")) {
                 logw("Could not parse duration");
             } else {
-                logw("stime=%s dur=%s", stime, dur);
                 d.duration = atoi(dur);
                 err = convert_time(stime);
                 if (!err)
@@ -507,4 +514,12 @@ bool webui_check_time()
 
     times = mktime(&tm);
     return times <= timec && timec <= times + d.duration * 3600;
+}
+
+
+bool webui_wifi_scan()
+{
+    bool wifi = d.wifi;
+    d.wifi = false;
+    return wifi;
 }

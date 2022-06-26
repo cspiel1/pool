@@ -82,6 +82,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
         gpio_set_level(GPIO_LED, true);
         ESP_LOGI(TAG, "Wifi ok, LED on");
+        logw("Wifi ok, LED on");
     }
 }
 
@@ -183,4 +184,43 @@ void wifi_check(void)
             esp_wifi_connect();
         }
     }
+}
+
+
+void wifi_scan(void)
+{
+    wifi_scan_config_t scan_config = { 0 };
+    uint16_t g_scan_ap_num;
+    wifi_ap_record_t *g_ap_list_buffer;
+
+    logw("%s", __FUNCTION__);
+/*    scan_config.ssid      = CONFIG_ESP_WIFI_SSID;*/
+    scan_config.scan_type = WIFI_SCAN_TYPE_PASSIVE;
+
+    logw("Starting wifi scan");
+    esp_wifi_scan_start(&scan_config, 0);
+    logw("wifi scan started");
+    ESP_LOGI(TAG, "wifi scan started");
+    return;
+
+    esp_wifi_scan_get_ap_num(&g_scan_ap_num);
+    if (g_scan_ap_num) {
+        g_ap_list_buffer = malloc(g_scan_ap_num * sizeof(wifi_ap_record_t));
+        if (g_ap_list_buffer) {
+            if (esp_wifi_scan_get_ap_records(&g_scan_ap_num,
+                            (wifi_ap_record_t *) g_ap_list_buffer) == ESP_OK) {
+                for (int i = 0; i < g_scan_ap_num; i++) {
+                    ESP_LOGI(TAG, "[%s][rssi=%d]",
+                             g_ap_list_buffer[i].ssid,
+                             g_ap_list_buffer[i].rssi);
+                    logw("[%s][rssi=%d]",
+                             g_ap_list_buffer[i].ssid,
+                             g_ap_list_buffer[i].rssi);
+                }
+            }
+
+            free(g_ap_list_buffer);
+        }
+    }
+
 }

@@ -86,5 +86,8 @@ void app_main(void)
             xTaskCreate(&ota_task, "ota_task", 8192, NULL, 5, NULL);
 
         wifi_check();
+
+        if (webui_wifi_scan())
+            wifi_scan();
     }
 }
