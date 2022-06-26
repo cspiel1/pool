@@ -365,6 +365,10 @@ static esp_err_t handle_post(httpd_req_t *req)
             d.wifi = true;
             logw("command=wifi");
         }
+        else if (strstr(buf, "force=none")) {
+            ESP_LOGI(TAG, "=========== Force none ==========");
+            d.force = FORCE_NONE;
+        }
         else if (strstr(buf, "force=on")) {
             ESP_LOGI(TAG, "=========== Force on ==========");
             d.force = FORCE_ON;
