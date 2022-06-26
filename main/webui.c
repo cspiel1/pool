@@ -116,51 +116,61 @@ static void init_hh_mm(void)
 }
 
 
+static esp_err_t send_chunk(httpd_req_t *req, const char *str)
+{
+    size_t s = strlen(str);
+    return httpd_resp_send_chunk(req, str, s);
+}
+
+
 static esp_err_t send_html(httpd_req_t *req)
 {
     char  buf[BUF_SIZE];
     char stime[10];
     const char *logl;
     const char *checked = " checked=\"checked\"";
+    esp_err_t err;
 
     if (!d.hh && !d.mm)
         init_hh_mm();
 
     snprintf(stime, sizeof(stime), "%02d:%02d", d.hh, d.mm);
-    printf("%s:%d HUUUUUU %s\n", __func__, __LINE__, stime);
     snprintf(buf, sizeof(buf), HTML_INPUT_TIME, stime, d.duration);
-    httpd_resp_send_chunk(req, HTML_HEADER HTML_FORM1, HTTPD_RESP_USE_STRLEN);
-    httpd_resp_send_chunk(req,  buf, HTTPD_RESP_USE_STRLEN);
-    httpd_resp_send_chunk(req, HTML_HEADER HTML_FORM2, HTTPD_RESP_USE_STRLEN);
+    err  = send_chunk(req, HTML_HEADER HTML_FORM1);
+    err |= send_chunk(req, buf);
+    err |= send_chunk(req, HTML_HEADER HTML_FORM2);
 
     snprintf(buf, sizeof(buf), HTML_FORM3,
             d.force == FORCE_NONE ? checked : "",
             d.force == FORCE_ON   ? checked : "",
             d.force == FORCE_OFF  ? checked : "");
 
-    httpd_resp_send_chunk(req,  buf, HTTPD_RESP_USE_STRLEN);
-    httpd_resp_send_chunk(req, HTML_LOG, HTTPD_RESP_USE_STRLEN);
+    err |= send_chunk(req, buf);
+    err |= send_chunk(req, HTML_LOG);
 
+    log_rewind();
     logl = logr();
     while (logl) {
         snprintf(buf, sizeof(buf), "<p>%s</p>", logl);
-        httpd_resp_send_chunk(req,  buf, HTTPD_RESP_USE_STRLEN);
+        err |= send_chunk(req, buf);
         logl = logr();
     }
 
     if (snprintf(buf, sizeof(buf), "<p>%s ...</p>", d.upgrade ? "Upgrading..." :
-                webui_check_time() ? "Running" : "Sleeping"))
-        httpd_resp_send_chunk(req, buf, HTTPD_RESP_USE_STRLEN);
-
+                webui_check_time() ? "Running" : "Sleeping") > 0)
+        err |= send_chunk(req, buf);
 
     if ((d.reboot || d.reset ) && snprintf(buf, sizeof(buf), "<p>%s ...</p>",
                 d.reboot ? "Reboot" :
-                d.reset ? "Reset" : ""))
-        httpd_resp_send_chunk(req, buf, HTTPD_RESP_USE_STRLEN);
+                d.reset ? "Reset" : "") > 0)
+        err |= send_chunk(req, buf);
 
-    httpd_resp_send_chunk(req, HTML_FOOTER, HTTPD_RESP_USE_STRLEN);
+    if (d.wifi && snprintf(buf, sizeof(buf), "<p>Wifi scan ...</p>") > 0)
+        err |= send_chunk(req, buf);
 
-    return ESP_OK;
+    err |= send_chunk(req, HTML_FOOTER);
+    err |= send_chunk(req, "");
+    return err;
 }
 
 
