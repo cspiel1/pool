@@ -158,7 +158,10 @@ void pool_loop(void *pvParameter)
         const int d = 20*60;
         vTaskDelay(100 / portTICK_PERIOD_MS);
 
-        cnt++;
+        ++cnt;
+        if (webui_switch()) {
+            cnt = 0;
+        }
 
         if (!webui_check_time()) {
             if (run) {

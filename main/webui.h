@@ -11,4 +11,5 @@ void webui_connect_handler(void* arg, esp_event_base_t event_base,
 bool webui_upgrade(void);
 bool webui_check_time(void);
 bool webui_wifi_scan(void);
+bool webui_switch(void);
 #endif

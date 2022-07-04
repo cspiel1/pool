@@ -28,6 +28,8 @@ static const char *TAG = "webui";
 "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">" \
 "</header>" \
 "<body>\n" \
+"<h2>Pool Saltwater System V1.6</h2>" \
+"<h3>%s</h3>\n" \
 "\n"
 
 #define HTML_FOOTER \
@@ -45,7 +47,6 @@ static const char *TAG = "webui";
 " value=\"%d\"><br>\n"
 
 #define HTML_FORM1 \
-"<h2>Pool Saltwater System V1.6</h2>" \
 "" \
 "<form action=\"\" method=\"post\">\n"
 
@@ -65,6 +66,8 @@ static const char *TAG = "webui";
 "  <label for=\"reset\">Reset</label><br>\n" \
 "  <input type=\"radio\" id=\"wifi\" name=\"command\" value=\"wifi\">\n" \
 "  <label for=\"wifi\">Wifi Scan</label><br>\n" \
+"  <input type=\"radio\" id=\"switch\" name=\"command\" value=\"switch\">\n" \
+"  <label for=\"switch\">Switch Voltage</label><br>\n" \
 "  <br>\n" \
 "  <br>\n" \
 
@@ -99,6 +102,7 @@ struct webui {
     bool reboot;
     bool wifi;
     bool reset;
+    bool switc;
     int dcnt;
     enum force_run force;
 };
@@ -126,9 +130,22 @@ static esp_err_t send_chunk(httpd_req_t *req, const char *str)
 }
 
 
+void str_current_time(char *buf, size_t size)
+{
+    time_t time;
+    struct tm tm;
+
+    time = current_time();
+    localtime_r(&time, &tm);
+
+    strftime(buf, size, "%H:%M", localtime_r(&time, &tm));
+}
+
+
 static esp_err_t send_html(httpd_req_t *req)
 {
     char  buf[BUF_SIZE];
+    char ctime[10] = {0};
     char stime[10];
     const char *logl;
     const char *checked = " checked=\"checked\"";
@@ -137,18 +154,24 @@ static esp_err_t send_html(httpd_req_t *req)
     if (!d.hh && !d.mm)
         init_hh_mm();
 
-    snprintf(stime, sizeof(stime), "%02d:%02d", d.hh, d.mm);
-    snprintf(buf, sizeof(buf), HTML_INPUT_TIME, stime, d.duration);
-    err  = send_chunk(req, HTML_HEADER HTML_FORM1);
-    err |= send_chunk(req, buf);
-    err |= send_chunk(req, HTML_HEADER HTML_FORM2);
+    str_current_time(ctime, sizeof ctime);
+    snprintf(buf, sizeof(buf), HTML_HEADER, ctime);
+    err  = send_chunk(req, buf);
 
-    snprintf(buf, sizeof(buf), HTML_FORM3,
-            d.force == FORCE_NONE ? checked : "",
-            d.force == FORCE_ON   ? checked : "",
-            d.force == FORCE_OFF  ? checked : "");
+    if (!d.reboot && !d.upgrade) {
+        err  = send_chunk(req, HTML_FORM1);
+        snprintf(stime, sizeof(stime), "%02d:%02d", d.hh, d.mm);
+        snprintf(buf, sizeof(buf), HTML_INPUT_TIME, stime, d.duration);
+        err |= send_chunk(req, HTML_FORM2);
 
-    err |= send_chunk(req, buf);
+        snprintf(buf, sizeof(buf), HTML_FORM3,
+                 d.force == FORCE_NONE ? checked : "",
+                 d.force == FORCE_ON   ? checked : "",
+                 d.force == FORCE_OFF  ? checked : "");
+
+        err |= send_chunk(req, buf);
+    }
+
     err |= send_chunk(req, HTML_LOG);
 
     log_rewind();
@@ -168,6 +191,7 @@ static esp_err_t send_html(httpd_req_t *req)
                 d.reset ? "Reset" : "") > 0)
         err |= send_chunk(req, buf);
 
+    d.reset = false;
     if (d.wifi && snprintf(buf, sizeof(buf), "<p>Wifi scan ...</p>") > 0)
         err |= send_chunk(req, buf);
 
@@ -353,17 +377,24 @@ static esp_err_t handle_post(httpd_req_t *req)
         else if (strstr(buf, "command=reboot")) {
             ESP_LOGI(TAG, "=========== Reboot ==========");
             esp_restart();
+            d.reboot=true;
         }
         else if (strstr(buf, "command=reset")) {
             ESP_LOGI(TAG, "=========== Reset ==========");
             init_hh_mm();
             d.duration = 3;
+            d.reset=true;
             ESP_ERROR_CHECK(nvs_flash_erase());
         }
         else if (strstr(buf, "command=wifi")) {
             ESP_LOGI(TAG, "=========== Wifi scan ==========");
             d.wifi = true;
             logw("command=wifi");
+        }
+        else if (strstr(buf, "command=switch")) {
+            ESP_LOGI(TAG, "=========== Switch Voltage ==========");
+            d.switc = true;
+            logw("command=switch");
         }
         else if (d.force && strstr(buf, "force=none")) {
             ESP_LOGI(TAG, "=========== Force none ==========");
@@ -526,4 +557,12 @@ bool webui_wifi_scan()
     bool wifi = d.wifi;
     d.wifi = false;
     return wifi;
+}
+
+
+bool webui_switch(void)
+{
+    bool switc = d.switc;
+    d.switc = false;
+    return switc;
 }
