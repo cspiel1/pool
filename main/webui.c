@@ -42,8 +42,8 @@ static const char *TAG = "webui";
 "<input type=\"time\" id=\"stime\" name=\"stime\" min=\"06:00\" max=\"23:00\"" \
 " value=\"%s\" step=\"60\"><br>\n" \
 "  <br>\n" \
-"<label for=\"duration\">Duration</label><br>\n" \
-"<input type=\"range\" id=\"duration\" name=\"duration\" min=\"1\" max=\"8\"" \
+"<label for=\"duration\">Duration: %d h</label><br>\n" \
+"<input type=\"range\" id=\"duration\" name=\"duration\" min=\"1\" max=\"12\"" \
 " value=\"%d\"><br>\n"
 
 #define HTML_FORM1 \
@@ -161,7 +161,9 @@ static esp_err_t send_html(httpd_req_t *req)
     if (!d.reboot && !d.upgrade) {
         err  = send_chunk(req, HTML_FORM1);
         snprintf(stime, sizeof(stime), "%02d:%02d", d.hh, d.mm);
-        snprintf(buf, sizeof(buf), HTML_INPUT_TIME, stime, d.duration);
+        snprintf(buf, sizeof(buf), HTML_INPUT_TIME, stime, d.duration,
+                 d.duration);
+        err |= send_chunk(req, buf);
         err |= send_chunk(req, HTML_FORM2);
 
         snprintf(buf, sizeof(buf), HTML_FORM3,
