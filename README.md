@@ -1,5 +1,7 @@
 # INTEX Saltwater System Model ECO6220G Hat
 
+Purpose of this project: The intex saltwater controller seems to have a constructive failure that makes it useless after a few years like some users reported in online pool panels. The controller board seems to restart the chlorous production and beeps repeatedly 1-3 times per second. The idea is to connect an ESP32 to directly control the relais on the power part of the Intex controller board.
+
 GPIO Pins
 
 ```
